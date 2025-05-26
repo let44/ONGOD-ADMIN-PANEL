@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel - Orders</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; }
+    .container { max-width: 1200px; margin: 40px auto; background: #fff; border-radius: 14px; box-shadow: 0 4px 24px #0002; padding: 32px 20px; }
+    h1 { margin-top: 0; font-size: 2.2rem; color: #222; }
+    .refresh-btn { margin-bottom: 20px; padding: 8px 16px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer;}
+    .refresh-btn:hover { background: #218838; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #e0e0e0; padding: 10px 8px; }
+    th { background: #f8f9fa; color: #333; font-weight: 600; }
+    tr:nth-child(even) { background: #f6f8fa; }
+    tr:hover { background: #eaf6ff; }
+    .action-btn { padding: 5px 12px; margin: 0 2px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.98rem;}
+    .confirm-btn { background: #007bff; color: #fff; }
+    .delete-btn { background: #dc3545; color: #fff; }
+    .confirm-btn:hover { background: #0056b3; }
+    .delete-btn:hover { background: #a71d2a; }
+    .pay-btn { background: #28a745; color: #fff; }
+    .pay-btn:hover { background: #1e7e34; }
+    .unpaid-btn { background: #ffc107; color: #333; }
+    .unpaid-btn:hover { background: #e0a800; }
+    @media (max-width: 900px) {
+      .container { padding: 10px; }
+      table, th, td { font-size: 13px; }
+    }
+    @media (max-width: 600px) {
+      .container { padding: 2px; }
+      table, th, td { font-size: 12px; }
+      h1 { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Panel - Orders</h1>
+    <button class="refresh-btn" onclick="fetchOrders()">Refresh Orders</button>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Items</th>
+          <th>Details</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="orders-table">
+        <tr><td colspan="10" style="text-align:center;">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <script>
+    const ORDERS_URL = 'https://api.sheetbest.com/sheets/6b0edbce-49b7-4baf-8bb6-a5c1f6879fa2';
+
+    function fetchOrders() {
+      const tbody = document.getElementById('orders-table');
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
+      fetch(ORDERS_URL)
+        .then(res => res.json())
+        .then(data => {
+          if (!Array.isArray(data) || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">No orders found.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = '';
+          data.slice().reverse().forEach(order => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${order.date || ''}</td>
+              <td>${order.type || ''}</td>
+              <td>${order.name || ''}</td>
+              <td>${order.phone || ''}</td>
+              <td>${order.email || ''}</td>
+              <td>${order.items || ''}</td>
+              <td>${order.details || ''}</td>
+              <td>${order.total ? ('#' + order.total) : ''}</td>
+              <td>${order.status || ''}</td>
+              <td>
+                <button class="action-btn confirm-btn" onclick="confirmOrder('${encodeURIComponent(order.date)}','${encodeURIComponent(order.email)}')">Confirm</button>
+                <button class="action-btn delete-btn" onclick="deleteOrder('${encodeURIComponent(order.date)}','${encodeURIComponent(order.email)}')">Delete</button>
+                <button class="action-btn pay-btn" onclick="markPaid('${encodeURIComponent(order.date)}','${encodeURIComponent(order.email)}','${order.email}','${order.items}')">Pay</button>
+                <button class="action-btn unpaid-btn" onclick="markUnpaid('${encodeURIComponent(order.date)}','${encodeURIComponent(order.email)}','${order.email}','${order.items}')">Unpaid</button>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        })
+        .catch(() => {
+          tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Failed to load orders.</td></tr>';
+        });
+    }
+
+    function confirmOrder(date, email) {
+      if (!confirm('Mark this order as confirmed?')) return;
+      fetch(`${ORDERS_URL}/date/${date}/email/${email}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Confirmed' })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to confirm order');
+        alert('Order confirmed!');
+        fetchOrders();
+      })
+      .catch(() => alert('Error confirming order.'));
+    }
+
+    function deleteOrder(date, email) {
+      if (!confirm('Are you sure you want to delete this order?')) return;
+      fetch(`${ORDERS_URL}/date/${date}/email/${email}`, {
+        method: 'DELETE'
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to delete order');
+        alert('Order deleted!');
+        fetchOrders();
+      })
+      .catch(() => alert('Error deleting order.'));
+    }
+
+    // --- Mark as Paid ---
+    function markPaid(date, email, userEmail, items) {
+      if (!confirm('Mark this order as PAID?')) return;
+      fetch(`${ORDERS_URL}/date/${date}/email/${email}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Paid' })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to update order');
+        sendNotification(userEmail, `Your order (${items}) has been marked as PAID. Thank you!`);
+        alert('Order marked as PAID and user notified.');
+        fetchOrders();
+      })
+      .catch(() => alert('Error updating order.'));
+    }
+
+    // --- Mark as Unpaid ---
+    function markUnpaid(date, email, userEmail, items) {
+      if (!confirm('Mark this order as UNPAID?')) return;
+      fetch(`${ORDERS_URL}/date/${date}/email/${email}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Unpaid' })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to update order');
+        sendNotification(userEmail, `Your order (${items}) is marked as UNPAID. Please complete your payment.`);
+        alert('Order marked as UNPAID and user notified.');
+        fetchOrders();
+      })
+      .catch(() => alert('Error updating order.'));
+    }
+
+    // --- Send notification row to SheetBest ---
+    function sendNotification(email, message) {
+      fetch(ORDERS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          message: message,
+          date: new Date().toLocaleString(),
+          status: 'unread'
+        })
+      });
+    }
+
+    fetchOrders();
+  </script>
+</body>
+</html>
