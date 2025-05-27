@@ -2,14 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Ongod Gadget Admin Panel</title>
+  <title>Ongod Gadget Admin Panel - Notify User</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; }
-    .container { max-width: 1100px; margin: 40px auto; background: #fff; border-radius: 14px; box-shadow: 0 4px 24px #0002; padding: 32px 20px; }
-    h1 { margin-top: 0; font-size: 2.2rem; color: #222; }
-    .refresh-btn { margin-bottom: 20px; padding: 8px 16px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer;}
-    .refresh-btn:hover { background: #218838; }
+    .container { max-width: 900px; margin: 40px auto; background: #fff; padding: 30px 20px 20px 20px; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
+    h2 { text-align: center; margin-bottom: 20px; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border: 1px solid #e0e0e0; padding: 10px 8px; }
     th { background: #f8f9fa; color: #333; font-weight: 600; }
@@ -17,13 +15,9 @@
     tr:hover { background: #eaf6ff; }
     .action-btn { padding: 5px 12px; margin: 0 2px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.98rem;}
     .confirm-btn { background: #007bff; color: #fff; }
-    .delete-btn { background: #dc3545; color: #fff; }
     .confirm-btn:hover { background: #0056b3; }
+    .delete-btn { background: #dc3545; color: #fff; }
     .delete-btn:hover { background: #a71d2a; }
-    .pay-btn { background: #28a745; color: #fff; }
-    .pay-btn:hover { background: #1e7e34; }
-    .unpaid-btn { background: #ffc107; color: #333; }
-    .unpaid-btn:hover { background: #e0a800; }
     #adminNotification {
       display:none;
       position:fixed;
@@ -39,41 +33,59 @@
       min-width:220px;
       text-align:center;
     }
-    @media (max-width: 900px) {
-      .container { padding: 10px; }
-      table, th, td { font-size: 13px; }
+    /* Modal styles */
+    #notifyModal {
+      display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:#0005; z-index:2000;
     }
-    @media (max-width: 600px) {
-      .container { padding: 2px; }
-      table, th, td { font-size: 12px; }
-      h1 { font-size: 1.3rem; }
+    #notifyModalBox {
+      background:#fff; padding:24px 18px; border-radius:8px; max-width:400px; margin:80px auto; position:relative;
     }
+    #notifyModalBox label { display:block; margin:10px 0 4px 0; }
+    #notifyModalBox select, #notifyModalBox textarea { width:100%; padding:8px; border-radius:4px; border:1px solid #ccc; }
+    #notifyModalBox button { margin-top:12px; }
   </style>
 </head>
 <body>
   <div id="adminNotification"></div>
   <div class="container">
-    <h1>Ongod Gadget Admin Panel</h1>
-    <button class="refresh-btn" onclick="fetchOrders()">Refresh Orders</button>
+    <h2>Ongod Gadget Admin Panel</h2>
+    <button onclick="fetchOrders()">Refresh Orders</button>
     <table>
       <thead>
         <tr>
           <th>Date</th>
-          <th>Type</th>
           <th>Name</th>
-          <th>Phone</th>
           <th>Email</th>
+          <th>Phone</th>
           <th>Items</th>
-          <th>Details</th>
-          <th>Total</th>
           <th>Status</th>
           <th>Action</th>
         </tr>
       </thead>
       <tbody id="orders-table">
-        <tr><td colspan="10" style="text-align:center;">Loading...</td></tr>
+        <tr><td colspan="7" style="text-align:center;">Loading...</td></tr>
       </tbody>
     </table>
+  </div>
+  <!-- Notify Modal -->
+  <div id="notifyModal">
+    <div id="notifyModalBox">
+      <h3>Send Notification</h3>
+      <form id="notifyForm" onsubmit="return sendNotificationToUser();">
+        <label>Send via:</label>
+        <select id="notifyType">
+          <option value="email">Email</option>
+          <option value="phone">Phone (SMS)</option>
+        </select>
+        <label>Message:</label>
+        <textarea id="notifyMsg" rows="4">Your order has been confirmed by admin.</textarea>
+        <input type="hidden" id="notifyEmail">
+        <input type="hidden" id="notifyPhone">
+        <input type="hidden" id="notifyDate">
+        <button type="submit">Send</button>
+        <button type="button" onclick="closeNotifyModal()">Cancel</button>
+      </form>
+    </div>
   </div>
   <script>
     // SheetBest API URL
@@ -88,111 +100,84 @@
       window._adminNotifTimeout = setTimeout(() => { n.style.display = 'none'; }, 3000);
     }
 
-    function formatDate(dateStr) {
-      if (!dateStr) return '';
-      const d = new Date(dateStr);
-      if (isNaN(d)) return dateStr;
-      return d.toLocaleString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    }
-
     function fetchOrders() {
       const tbody = document.getElementById('orders-table');
-      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Loading...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
       fetch(ORDERS_URL)
         .then(res => res.json())
         .then(data => {
           if (!Array.isArray(data) || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">No orders found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No orders found.</td></tr>';
             return;
           }
           tbody.innerHTML = '';
           data.slice().reverse().forEach((order, idx) => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-              <td>${formatDate(order.date)}</td>
-              <td>${order.type || ''}</td>
+              <td>${order.date || ''}</td>
               <td>${order.name || ''}</td>
-              <td>${order.phone || ''}</td>
               <td>${order.email || ''}</td>
+              <td>${order.phone || ''}</td>
               <td>${order.items || ''}</td>
-              <td>${order.details || ''}</td>
-              <td>${order.total ? ('#' + order.total) : ''}</td>
               <td id="status-${idx}">${order.status || ''}</td>
               <td>
-                <button class="action-btn confirm-btn" onclick="markAsConfirmed(${idx}, this)">Confirm</button>
-                <button class="action-btn delete-btn" onclick="deleteOrder(${idx}, this)">Delete</button>
+                <button class="action-btn confirm-btn" onclick="openNotifyModal('${order.email}','${order.phone}','${order.date}',${idx})">Confirm</button>
               </td>
             `;
-            tr.dataset.orderIndex = idx;
             tbody.appendChild(tr);
           });
-          window._ordersData = data.slice().reverse(); // Store for actions
+          window._ordersData = data.slice().reverse();
         })
         .catch(() => {
-          tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;">Failed to load orders.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Failed to load orders.</td></tr>';
         });
     }
 
-    // Mark as Confirmed (status update and message for user)
-    function markAsConfirmed(idx, btn) {
-      if (!window._ordersData || !window._ordersData[idx]) return;
-      const order = window._ordersData[idx];
-      if (order.status === 'Confirmed') {
-        showAdminNotification('Order already confirmed.', "#ffc107");
-        return;
-      }
-      // PATCH request to SheetBest to update status and message
+    // Modal logic
+    function openNotifyModal(email, phone, date, idx) {
+      document.getElementById('notifyModal').style.display = 'block';
+      document.getElementById('notifyEmail').value = email;
+      document.getElementById('notifyPhone').value = phone;
+      document.getElementById('notifyDate').value = date;
+      document.getElementById('notifyForm').dataset.idx = idx;
+    }
+    function closeNotifyModal() {
+      document.getElementById('notifyModal').style.display = 'none';
+    }
+
+    // Send notification to user (email or phone)
+    function sendNotificationToUser() {
+      const type = document.getElementById('notifyType').value;
+      const msg = document.getElementById('notifyMsg').value;
+      const email = document.getElementById('notifyEmail').value;
+      const phone = document.getElementById('notifyPhone').value;
+      const date = document.getElementById('notifyDate').value;
+      const idx = document.getElementById('notifyForm').dataset.idx;
+      // Update SheetBest with status/message
       fetch(ORDERS_URL, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify([
-          {
-            "date": order.date,
-            "email": order.email
-          },
-          {
-            "status": "Confirmed",
-            "message": "Your order has been confirmed by admin."
-          }
+          { "date": date, "email": email },
+          { "status": "Confirmed", "message": msg }
         ])
       }).then(() => {
         document.getElementById('status-' + idx).textContent = 'Confirmed';
-        btn.disabled = true;
-        btn.textContent = 'Confirmed';
-        btn.classList.remove('confirm-btn');
-        btn.classList.add('pay-btn');
-        showAdminNotification("User will see: Your order has been confirmed by admin.", "#28a745");
+        showAdminNotification("Order status updated.", "#28a745");
+        // Send email or SMS
+        if (type === "email") {
+          window.open(`mailto:${email}?subject=Order%20Update&body=${encodeURIComponent(msg)}`);
+          showAdminNotification("Email window opened.", "#007bff");
+        } else if (type === "phone") {
+          // For SMS, open sms: link (works on mobile)
+          window.open(`sms:${phone}?body=${encodeURIComponent(msg)}`);
+          showAdminNotification("SMS window opened.", "#007bff");
+        }
+        closeNotifyModal();
       }).catch(() => {
-        showAdminNotification('Failed to update order status.', "#dc3545");
+        showAdminNotification('Failed to update order.', "#dc3545");
       });
-    }
-
-    // Delete order (remove from SheetBest)
-    function deleteOrder(idx, btn) {
-      if (!window._ordersData || !window._ordersData[idx]) return;
-      if (!confirm('Are you sure you want to delete this order?')) return;
-      const order = window._ordersData[idx];
-      // DELETE request to SheetBest (by unique fields)
-      fetch(ORDERS_URL, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          "date": order.date,
-          "email": order.email
-        })
-      }).then(() => {
-        btn.closest('tr').remove();
-        showAdminNotification("Order deleted.", "#333");
-      }).catch(() => {
-        showAdminNotification('Failed to delete order.', "#dc3545");
-      });
+      return false;
     }
 
     fetchOrders();
