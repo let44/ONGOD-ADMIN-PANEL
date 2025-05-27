@@ -54,7 +54,11 @@
     </div>
   </div>
   <script>
+    // SheetBest for orders
     const SHEETBEST_URL = 'https://api.sheetbest.com/sheets/4115eaae-b505-4191-83bf-a0d58cec1644';
+    // SheetBest for broadcast notifications (replace with your own ID)
+    const BROADCAST_URL = 'https://api.sheetbest.com/sheets/0a535d55-d56d-4461-9b17-e214d30e9772'; // <-- PUT YOUR BROADCAST SHEET ID HERE
+
     let currentAction = null, currentOrder = null;
 
     function fetchOrders() {
@@ -136,6 +140,7 @@
         currentAction === 'reject' ? 'Rejected' :
         'Deleted';
 
+      // 1. Update the order in the order sheet
       fetch(`${SHEETBEST_URL}/date/${encodeURIComponent(currentOrder.date)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -143,11 +148,24 @@
       })
       .then(res => res.json())
       .then(() => {
+        // 2. Send broadcast notification to all users
+        sendBroadcastNotification(
+          `Order for ${currentOrder.items} (${currentOrder.email}) - ${msg} (${new Date().toLocaleString()})`
+        );
         alert('Message sent! User will see it in their notification icon.');
         closeModal();
         fetchOrders();
       });
-      // No .catch block, so no error alert will show
+    }
+
+    // Broadcast notification to all users
+    function sendBroadcastNotification(msg) {
+      const id = Date.now().toString() + Math.random().toString(36).substr(2,5);
+      fetch(BROADCAST_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, msg, time: new Date().toLocaleString() })
+      });
     }
 
     fetchOrders();
