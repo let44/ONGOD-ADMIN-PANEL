@@ -30,6 +30,8 @@
     }
     #modalBox input, #modalBox textarea { width: 100%; margin: 8px 0; padding: 8px; border-radius: 4px; border: 1px solid #ddd; }
     #modalBox button { margin: 8px 4px 0 4px; }
+    .send-options { margin: 8px 0; }
+    .send-options label { margin-right: 12px; }
     @media (max-width: 900px) {
       .container { padding: 10px; }
       table, th, td { font-size: 13px; }
@@ -48,7 +50,11 @@
     <div id="modalBox">
       <div id="modalContact"></div>
       <textarea id="modalMsg" rows="3" placeholder="Type your message..."></textarea>
-      <br>
+      <div class="send-options">
+        <label><input type="radio" name="sendType" value="notification" checked> Notification</label>
+        <label><input type="radio" name="sendType" value="email"> Email</label>
+        <label><input type="radio" name="sendType" value="sms"> SMS</label>
+      </div>
       <button onclick="sendModalMsg()">Send</button>
       <button onclick="closeModal()">Cancel</button>
     </div>
@@ -118,7 +124,7 @@
         Phone: <a href="tel:${currentOrder.phone}">${currentOrder.phone}</a><br>
         <b>Order:</b> ${currentOrder.items}
         <br><br>
-        <span style="color:#555;">Message to user (will show in their notification):</span>
+        <span style="color:#555;">Message to user (choose how to send):</span>
       `;
       document.getElementById('modalContact').innerHTML = contactHtml;
       document.getElementById('modalMsg').value = 
@@ -140,6 +146,9 @@
         currentAction === 'reject' ? 'Rejected' :
         'Deleted';
 
+      // Get selected send type
+      const sendType = document.querySelector('input[name="sendType"]:checked').value;
+
       // 1. Update the order in the order sheet
       fetch(`${SHEETBEST_URL}/date/${encodeURIComponent(currentOrder.date)}`, {
         method: 'PATCH',
@@ -148,11 +157,21 @@
       })
       .then(res => res.json())
       .then(() => {
-        // 2. Send broadcast notification to all users
-        sendBroadcastNotification(
-          `Order for ${currentOrder.items} (${currentOrder.email}) - ${msg} (${new Date().toLocaleString()})`
-        );
-        alert('Message sent! User will see it in their notification icon.');
+        if (sendType === 'notification') {
+          // Send broadcast notification to all users
+          sendBroadcastNotification(
+            `Order for ${currentOrder.items} (${currentOrder.email}) - ${msg} (${new Date().toLocaleString()})`
+          );
+          alert('Notification sent! User will see it in their notification icon.');
+        } else if (sendType === 'email') {
+          // Open default mail client
+          window.open(`mailto:${currentOrder.email}?subject=Order Update&body=${encodeURIComponent(msg)}`);
+          alert('Email window opened.');
+        } else if (sendType === 'sms') {
+          // Open default SMS app (works on mobile)
+          window.open(`sms:${currentOrder.phone}?body=${encodeURIComponent(msg)}`);
+          alert('SMS window opened.');
+        }
         closeModal();
         fetchOrders();
       });
