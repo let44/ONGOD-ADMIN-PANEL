@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; }
-    .container { max-width: 900px; margin: 40px auto; background: #fff; padding: 30px 20px 20px 20px; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
+    .container { max-width: 1000px; margin: 40px auto; background: #fff; padding: 30px 20px 20px 20px; border-radius: 8px; box-shadow: 0 2px 8px #0001; }
     h2 { text-align: center; margin-bottom: 20px; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border: 1px solid #e0e0e0; padding: 10px 8px; }
@@ -18,6 +18,8 @@
     .confirm-btn:hover { background: #0056b3; }
     .delete-btn { background: #dc3545; color: #fff; }
     .delete-btn:hover { background: #a71d2a; }
+    .reject-btn { background: #ffc107; color: #333; }
+    .reject-btn:hover { background: #e0a800; }
     #adminNotification {
       display:none;
       position:fixed;
@@ -43,6 +45,7 @@
     #notifyModalBox label { display:block; margin:10px 0 4px 0; }
     #notifyModalBox select, #notifyModalBox textarea { width:100%; padding:8px; border-radius:4px; border:1px solid #ccc; }
     #notifyModalBox button { margin-top:12px; }
+    .details-cell { font-size: 0.97em; color: #444; }
   </style>
 </head>
 <body>
@@ -58,12 +61,13 @@
           <th>Email</th>
           <th>Phone</th>
           <th>Items</th>
+          <th>Details</th>
           <th>Status</th>
           <th>Action</th>
         </tr>
       </thead>
       <tbody id="orders-table">
-        <tr><td colspan="7" style="text-align:center;">Loading...</td></tr>
+        <tr><td colspan="8" style="text-align:center;">Loading...</td></tr>
       </tbody>
     </table>
   </div>
@@ -78,10 +82,11 @@
           <option value="phone">Phone (SMS)</option>
         </select>
         <label>Message:</label>
-        <textarea id="notifyMsg" rows="4">Your order has been confirmed by admin.</textarea>
+        <textarea id="notifyMsg" rows="6"></textarea>
         <input type="hidden" id="notifyEmail">
         <input type="hidden" id="notifyPhone">
         <input type="hidden" id="notifyDate">
+        <input type="hidden" id="notifyAction">
         <button type="submit">Send</button>
         <button type="button" onclick="closeNotifyModal()">Cancel</button>
       </form>
@@ -102,12 +107,12 @@
 
     function fetchOrders() {
       const tbody = document.getElementById('orders-table');
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading...</td></tr>';
       fetch(ORDERS_URL)
         .then(res => res.json())
         .then(data => {
           if (!Array.isArray(data) || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No orders found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No orders found.</td></tr>';
             return;
           }
           tbody.innerHTML = '';
@@ -119,9 +124,12 @@
               <td>${order.email || ''}</td>
               <td>${order.phone || ''}</td>
               <td>${order.items || ''}</td>
+              <td class="details-cell">${order.details || ''}</td>
               <td id="status-${idx}">${order.status || ''}</td>
               <td>
-                <button class="action-btn confirm-btn" onclick="openNotifyModal('${order.email}','${order.phone}','${order.date}',${idx})">Confirm</button>
+                <button class="action-btn confirm-btn" onclick="openNotifyModal('${order.email}','${order.phone}','${order.date}',${idx},'confirm')">Confirm</button>
+                <button class="action-btn delete-btn" onclick="openNotifyModal('${order.email}','${order.phone}','${order.date}',${idx},'delete')">Delete</button>
+                <button class="action-btn reject-btn" onclick="openNotifyModal('${order.email}','${order.phone}','${order.date}',${idx},'reject')">Reject</button>
               </td>
             `;
             tbody.appendChild(tr);
@@ -129,17 +137,32 @@
           window._ordersData = data.slice().reverse();
         })
         .catch(() => {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Failed to load orders.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Failed to load orders.</td></tr>';
         });
     }
 
-    // Modal logic
-    function openNotifyModal(email, phone, date, idx) {
+    // Modal logic with order details in message
+    function openNotifyModal(email, phone, date, idx, action) {
       document.getElementById('notifyModal').style.display = 'block';
       document.getElementById('notifyEmail').value = email;
       document.getElementById('notifyPhone').value = phone;
       document.getElementById('notifyDate').value = date;
+      document.getElementById('notifyAction').value = action;
       document.getElementById('notifyForm').dataset.idx = idx;
+
+      // Get order details for this row
+      const order = window._ordersData[idx];
+      let detailsText = "";
+      if (order) {
+        detailsText = `Order Details:\n- Name: ${order.name}\n- Items: ${order.items}\n- Address: ${order.details}\n- Total: #${order.total}\n- Date: ${order.date}`;
+      }
+
+      // Set default message based on action and include details
+      let msg = "";
+      if (action === "confirm") msg = `Your order has been confirmed by admin.\n\n${detailsText}`;
+      else if (action === "delete") msg = `Your order has been deleted by admin.\n\n${detailsText}`;
+      else if (action === "reject") msg = `Your order has been rejected by admin.\n\n${detailsText}`;
+      document.getElementById('notifyMsg').value = msg;
     }
     function closeNotifyModal() {
       document.getElementById('notifyModal').style.display = 'none';
@@ -152,24 +175,31 @@
       const email = document.getElementById('notifyEmail').value;
       const phone = document.getElementById('notifyPhone').value;
       const date = document.getElementById('notifyDate').value;
+      const action = document.getElementById('notifyAction').value;
       const idx = document.getElementById('notifyForm').dataset.idx;
+
+      // Set status based on action
+      let status = "";
+      if (action === "confirm") status = "Confirmed";
+      else if (action === "delete") status = "Deleted";
+      else if (action === "reject") status = "Rejected";
+
       // Update SheetBest with status/message
       fetch(ORDERS_URL, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify([
           { "date": date, "email": email },
-          { "status": "Confirmed", "message": msg }
+          { "status": status, "message": msg }
         ])
       }).then(() => {
-        document.getElementById('status-' + idx).textContent = 'Confirmed';
+        document.getElementById('status-' + idx).textContent = status;
         showAdminNotification("Order status updated.", "#28a745");
         // Send email or SMS
         if (type === "email") {
           window.open(`mailto:${email}?subject=Order%20Update&body=${encodeURIComponent(msg)}`);
           showAdminNotification("Email window opened.", "#007bff");
         } else if (type === "phone") {
-          // For SMS, open sms: link (works on mobile)
           window.open(`sms:${phone}?body=${encodeURIComponent(msg)}`);
           showAdminNotification("SMS window opened.", "#007bff");
         }
