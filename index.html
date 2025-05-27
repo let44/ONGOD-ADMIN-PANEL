@@ -24,6 +24,21 @@
     .pay-btn:hover { background: #1e7e34; }
     .unpaid-btn { background: #ffc107; color: #333; }
     .unpaid-btn:hover { background: #e0a800; }
+    #adminNotification {
+      display:none;
+      position:fixed;
+      top:24px;
+      right:32px;
+      background:#333;
+      color:#fff;
+      padding:14px 28px;
+      border-radius:6px;
+      z-index:9999;
+      font-size:1.1rem;
+      box-shadow:0 2px 8px #0003;
+      min-width:220px;
+      text-align:center;
+    }
     @media (max-width: 900px) {
       .container { padding: 10px; }
       table, th, td { font-size: 13px; }
@@ -36,6 +51,7 @@
   </style>
 </head>
 <body>
+  <div id="adminNotification"></div>
   <div class="container">
     <h1>Ongod Gadget Admin Panel</h1>
     <button class="refresh-btn" onclick="fetchOrders()">Refresh Orders</button>
@@ -62,6 +78,15 @@
   <script>
     // Replace with your SheetBest API URL
     const ORDERS_URL = 'https://api.sheetbest.com/sheets/6b0edbce-49b7-4baf-8bb6-a5c1f6879fa2';
+
+    function showAdminNotification(msg, color = "#333") {
+      const n = document.getElementById('adminNotification');
+      n.textContent = msg;
+      n.style.background = color;
+      n.style.display = 'block';
+      clearTimeout(window._adminNotifTimeout);
+      window._adminNotifTimeout = setTimeout(() => { n.style.display = 'none'; }, 3000);
+    }
 
     function formatDate(dateStr) {
       if (!dateStr) return '';
@@ -120,7 +145,7 @@
       if (!window._ordersData || !window._ordersData[idx]) return;
       const order = window._ordersData[idx];
       if (order.status === 'Confirmed') {
-        alert('Order already confirmed.');
+        showAdminNotification('Order already confirmed.', "#ffc107");
         return;
       }
       // PATCH request to SheetBest to update status
@@ -133,7 +158,8 @@
             "email": order.email
           },
           {
-            "status": "Confirmed"
+            "status": "Confirmed",
+            "message": "Your order has been confirmed by admin."
           }
         ])
       }).then(() => {
@@ -142,8 +168,9 @@
         btn.textContent = 'Confirmed';
         btn.classList.remove('confirm-btn');
         btn.classList.add('pay-btn');
+        showAdminNotification("User will see: Order confirmed!", "#28a745");
       }).catch(() => {
-        alert('Failed to update order status.');
+        showAdminNotification('Failed to update order status.', "#dc3545");
       });
     }
 
@@ -162,8 +189,9 @@
         })
       }).then(() => {
         btn.closest('tr').remove();
+        showAdminNotification("Order deleted.", "#333");
       }).catch(() => {
-        alert('Failed to delete order.');
+        showAdminNotification('Failed to delete order.', "#dc3545");
       });
     }
 
