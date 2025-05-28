@@ -57,6 +57,7 @@
     <h2>Orders</h2>
     <div id="ordersTable">Loading...</div>
   </div>
+  <!-- Broadcast Notification Section -->
   <div class="container" style="margin-bottom:24px;">
     <h2>Broadcast Notification</h2>
     <textarea id="broadcastMsg" placeholder="Enter notification message"></textarea>
@@ -73,6 +74,7 @@
       <div>
         <button onclick="sendToUser('notify')">Send as Notification</button>
         <button onclick="sendToUser('email')">Send as Email</button>
+        <button onclick="sendToUser('broadcast')">Send to Notification Broadcast</button>
         <button onclick="closeNotifyModal()">Cancel</button>
       </div>
     </div>
@@ -204,10 +206,23 @@
         } else {
           showNotification("No email address for this user.", "#dc3545");
         }
+      } else if (type === 'broadcast') {
+        // Send to broadcast sheet
+        fetch(BROADCAST_SHEET_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg, date: new Date().toLocaleString() })
+        })
+        .then(() => {
+          showNotification("Broadcast sent to all users!", "#28a745");
+        })
+        .catch(() => {
+          showNotification("Failed to send broadcast.", "#dc3545");
+        });
       }
     }
 
-    // Broadcast notification logic
+    // Broadcast notification logic (standalone)
     function sendBroadcast() {
       const msg = document.getElementById('broadcastMsg').value.trim();
       if (!msg) {
