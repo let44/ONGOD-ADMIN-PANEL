@@ -26,27 +26,39 @@
     .actions .reject { background: #dc3545; color: #fff; }
     .actions .delete { background: #888; color: #fff; }
     .notification { position: fixed; top: 24px; right: 24px; background: #333; color: #fff; padding: 16px 28px; border-radius: 8px; font-size: 1.1rem; display: none; z-index: 9999; }
-    @media (max-width: 800px) {
-      .container { max-width: 98vw; padding: 10px 2vw; }
-      table { font-size: 13px; }
-      th, td { padding: 7px 3px; }
+    /* Responsive table for mobile */
+    @media (max-width: 900px) {
+      .container { max-width: 99vw; padding: 8px 2vw; }
+      table, thead, tbody, th, td, tr { display: block; width: 100%; }
+      thead tr { display: none; }
+      tr { margin-bottom: 18px; border-radius: 8px; box-shadow: 0 1px 6px #0001; background: #fff; }
+      td {
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-left: 48%;
+        min-height: 36px;
+        font-size: 15px;
+      }
+      td:last-child { border-bottom: none; }
+      td:before {
+        position: absolute;
+        top: 12px; left: 12px; width: 44%;
+        white-space: nowrap;
+        font-weight: bold;
+        color: #007bff;
+        font-size: 14px;
+        content: attr(data-label);
+      }
+      .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .actions button { margin-bottom: 6px; width: 100%; min-width: 90px; }
     }
-    @media (max-width: 500px) {
-      header { font-size: 1.2rem; padding: 14px 0; }
-      .container { padding: 4px 1vw; }
-      table { font-size: 11px; }
+    @media (max-width: 600px) {
+      .container { padding: 2px 1vw; }
+      td { font-size: 13px; padding-left: 46%; }
+      td:before { font-size: 12px; }
+      .actions button { font-size: 13px; min-width: 80px; }
     }
-    .modal-bg {
-      display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      background: #0005; z-index: 99999; align-items: center; justify-content: center;
-    }
-    .modal-box {
-      background: #fff; padding: 24px 18px; border-radius: 8px; max-width: 400px; margin: 80px auto; position: relative;
-      box-shadow: 0 2px 16px #0002;
-    }
-    .modal-box label { display: block; margin-bottom: 8px; }
-    .modal-box textarea { width: 100%; min-height: 60px; margin-bottom: 12px; }
-    .modal-box button { margin-right: 10px; }
   </style>
 </head>
 <body>
@@ -66,7 +78,7 @@
   <div class="notification" id="adminNotification"></div>
 
   <!-- Modal for notification/email choice -->
-  <div class="modal-bg" id="notifyModal">
+  <div class="modal-bg" id="notifyModal" style="display:none;">
     <div class="modal-box">
       <h3>Send Notification or Email</h3>
       <label for="notifMsg">Message to user:</label>
@@ -105,7 +117,9 @@
             document.getElementById('ordersTable').innerHTML = '<p>No orders yet.</p>';
             return;
           }
+          // Responsive table: use data-label for mobile
           let html = `<div style="overflow-x:auto;"><table>
+            <thead>
             <tr>
               <th>Date</th>
               <th>Order Type</th>
@@ -118,27 +132,29 @@
               <th>Status</th>
               <th>Notification</th>
               <th>Actions</th>
-            </tr>`;
+            </tr>
+            </thead>
+            <tbody>`;
           data.slice().reverse().forEach((order, idx) => {
             html += `<tr>
-              <td>${order.date ? order.date.replace('T', ' ').slice(0, 16) : ''}</td>
-              <td>${order.type || ''}</td>
-              <td>${order.name || ''}</td>
-              <td>${order.phone || ''}</td>
-              <td>${order.email || ''}</td>
-              <td>${order.items || ''}</td>
-              <td>${order.details || ''}</td>
-              <td>${order.total ? Number(order.total).toLocaleString() : ''}</td>
-              <td class="status ${order.status || ''}">${order.status || ''}</td>
-              <td>${order.user_notification || ''}</td>
-              <td class="actions">
+              <td data-label="Date">${order.date ? order.date.replace('T', ' ').slice(0, 16) : ''}</td>
+              <td data-label="Order Type">${order.type || ''}</td>
+              <td data-label="Name">${order.name || ''}</td>
+              <td data-label="Phone">${order.phone || ''}</td>
+              <td data-label="Email">${order.email || ''}</td>
+              <td data-label="Items">${order.items || ''}</td>
+              <td data-label="Address/Details">${order.details || ''}</td>
+              <td data-label="Total (₦)">${order.total ? Number(order.total).toLocaleString() : ''}</td>
+              <td data-label="Status" class="status ${order.status || ''}">${order.status || ''}</td>
+              <td data-label="Notification">${order.user_notification || ''}</td>
+              <td data-label="Actions" class="actions">
                 <button class="confirm" onclick="openNotifyModal(${ordersData.length-1-idx},'confirmed')">Confirm</button>
                 <button class="reject" onclick="openNotifyModal(${ordersData.length-1-idx},'rejected')">Reject</button>
                 <button class="delete" onclick="openNotifyModal(${ordersData.length-1-idx},'deleted')">Delete</button>
               </td>
             </tr>`;
           });
-          html += `</table></div>`;
+          html += `</tbody></table></div>`;
           document.getElementById('ordersTable').innerHTML = html;
         })
         .catch(() => {
@@ -146,7 +162,7 @@
         });
     }
 
-    // Always add label to notification
+    // --- Modal for notification/email/broadcast ---
     function openNotifyModal(idx, status) {
       currentIdx = idx;
       currentStatus = status;
@@ -222,7 +238,7 @@
       }
     }
 
-    // Broadcast notification logic (standalone)
+    // --- Broadcast notification logic (standalone) ---
     function sendBroadcast() {
       const msg = document.getElementById('broadcastMsg').value.trim();
       if (!msg) {
