@@ -14,6 +14,9 @@
     th { background: #f5f5f5; }
     tr:nth-child(even) { background: #fafbfc; }
     .status { font-weight: bold; }
+    .status.confirmed { color: #28a745; }
+    .status.rejected { color: #dc3545; }
+    .status.deleted { color: #888; }
     .status.transfer { color: #007bff; }
     .status.card { color: #28a745; }
     .status.ussd { color: #ff9800; }
@@ -33,6 +36,17 @@
       .container { padding: 4px 1vw; }
       table { font-size: 11px; }
     }
+    .modal-bg {
+      display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: #0005; z-index: 99999; align-items: center; justify-content: center;
+    }
+    .modal-box {
+      background: #fff; padding: 24px 18px; border-radius: 8px; max-width: 400px; margin: 80px auto; position: relative;
+      box-shadow: 0 2px 16px #0002;
+    }
+    .modal-box label { display: block; margin-bottom: 8px; }
+    .modal-box textarea { width: 100%; min-height: 60px; margin-bottom: 12px; }
+    .modal-box button { margin-right: 10px; }
   </style>
 </head>
 <body>
@@ -43,10 +57,32 @@
     <h2>Orders</h2>
     <div id="ordersTable">Loading...</div>
   </div>
+  <div class="container" style="margin-bottom:24px;">
+    <h2>Broadcast Notification</h2>
+    <textarea id="broadcastMsg" placeholder="Enter notification message"></textarea>
+    <button onclick="sendBroadcast()">Send Broadcast</button>
+  </div>
   <div class="notification" id="adminNotification"></div>
+
+  <!-- Modal for notification/email choice -->
+  <div class="modal-bg" id="notifyModal">
+    <div class="modal-box">
+      <h3>Send Notification or Email</h3>
+      <label for="notifMsg">Message to user:</label>
+      <textarea id="notifMsg"></textarea>
+      <div>
+        <button onclick="sendToUser('notify')">Send as Notification</button>
+        <button onclick="sendToUser('email')">Send as Email</button>
+        <button onclick="closeNotifyModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // Your SheetBest API URL
     const SHEETBEST_URL = 'https://api.sheetbest.com/sheets/bc256516-2eec-4676-8df9-0cacbf344615';
+    const BROADCAST_SHEET_URL = 'https://api.sheetbest.com/sheets/ec22d5cd-e7c9-4c05-aa38-d8a529a695a0';
+    let ordersData = [];
+    let currentAction = null, currentIdx = null, currentStatus = null;
 
     function showNotification(msg, color="#333") {
       const n = document.getElementById('adminNotification');
@@ -56,8 +92,6 @@
       clearTimeout(window._notifTimeout);
       window._notifTimeout = setTimeout(() => { n.style.display = 'none'; }, 3000);
     }
-
-    let ordersData = [];
 
     function fetchOrders() {
       document.getElementById('ordersTable').innerHTML = '<div style="padding:30px;text-align:center;">Loading...</div>';
@@ -80,6 +114,7 @@
               <th>Address/Details</th>
               <th>Total (₦)</th>
               <th>Status</th>
+              <th>Notification</th>
               <th>Actions</th>
             </tr>`;
           data.slice().reverse().forEach((order, idx) => {
@@ -93,10 +128,11 @@
               <td>${order.details || ''}</td>
               <td>${order.total ? Number(order.total).toLocaleString() : ''}</td>
               <td class="status ${order.status || ''}">${order.status || ''}</td>
+              <td>${order.user_notification || ''}</td>
               <td class="actions">
-                <button class="confirm" onclick="markConfirmed(${ordersData.length-1-idx})">Confirm</button>
-                <button class="reject" onclick="markRejected(${ordersData.length-1-idx})">Reject</button>
-                <button class="delete" onclick="markDeleted(${ordersData.length-1-idx})">Delete</button>
+                <button class="confirm" onclick="openNotifyModal(${ordersData.length-1-idx},'confirmed')">Confirm</button>
+                <button class="reject" onclick="openNotifyModal(${ordersData.length-1-idx},'rejected')">Reject</button>
+                <button class="delete" onclick="openNotifyModal(${ordersData.length-1-idx},'deleted')">Delete</button>
               </td>
             </tr>`;
           });
@@ -108,66 +144,91 @@
         });
     }
 
-    // Helper to update order status and notification
-    function updateOrderStatus(idx, status, userNotifMsg, adminMsg, color) {
+    // Always add label to notification
+    function openNotifyModal(idx, status) {
+      currentIdx = idx;
+      currentStatus = status;
+      let label =
+        status === 'confirmed' ? '[CONFIRMED] ' :
+        status === 'rejected' ? '[REJECTED] ' :
+        '[DELETED] ';
+      let defaultMsg =
+        status === 'confirmed' ? "Your order has been CONFIRMED! We will contact you soon." :
+        status === 'rejected' ? "Sorry, your order has been REJECTED. Please contact support for details." :
+        "Your order has been DELETED by admin.";
+      document.getElementById('notifMsg').value = label + defaultMsg;
+      document.getElementById('notifyModal').style.display = 'flex';
+    }
+    function closeNotifyModal() {
+      document.getElementById('notifyModal').style.display = 'none';
+      currentIdx = null;
+      currentStatus = null;
+    }
+
+    function sendToUser(type) {
+      const idx = currentIdx;
+      const status = currentStatus;
       const order = ordersData[idx];
       if (!order) return;
-      // Prepare PATCH body (SheetBest PATCH by row filter)
-      const patchBody = {
-        status: status,
-        user_notification: userNotifMsg + " (" + new Date().toLocaleString() + ")"
-      };
-      fetch(`${SHEETBEST_URL}/order?date=${encodeURIComponent(order.date)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patchBody)
-      })
-      .then(() => {
-        showNotification(adminMsg, color);
-        fetchOrders();
-        // Open email client to send tracking info
+      const msg = document.getElementById('notifMsg').value.trim();
+      if (!msg) {
+        showNotification("Message cannot be empty.", "#dc3545");
+        return;
+      }
+      closeNotifyModal();
+      if (type === 'notify') {
+        // Update sheet only
+        const patchBody = {
+          status: status,
+          user_notification: msg + " (" + new Date().toLocaleString() + ")"
+        };
+        fetch(`${SHEETBEST_URL}/order?date=${encodeURIComponent(order.date)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patchBody)
+        })
+        .then(() => {
+          showNotification("Notification sent to user.", "#28a745");
+          fetchOrders();
+        })
+        .catch(() => {
+          showNotification("Failed to update order.", "#dc3545");
+        });
+      } else if (type === 'email') {
+        // Open email client only
         if (order.email) {
           let subject = encodeURIComponent("Ongod Gadget Order Update");
-          let body = encodeURIComponent(`Dear ${order.name},\n\n${userNotifMsg}\n\nOrder: ${order.items}\nTotal: ₦${order.total}\n\nThank you for shopping with Ongod Gadget Shop!`);
+          let body = encodeURIComponent(`Dear ${order.name},\n\n${msg}\n\nOrder: ${order.items}\nTotal: ₦${order.total}\n\nThank you for shopping with Ongod Gadget Shop!`);
           window.location.href = `mailto:${order.email}?subject=${subject}&body=${body}`;
+          showNotification("Email window opened.", "#007bff");
+        } else {
+          showNotification("No email address for this user.", "#dc3545");
         }
+      }
+    }
+
+    // Broadcast notification logic
+    function sendBroadcast() {
+      const msg = document.getElementById('broadcastMsg').value.trim();
+      if (!msg) {
+        showNotification("Message cannot be empty.", "#dc3545");
+        return;
+      }
+      fetch(BROADCAST_SHEET_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, date: new Date().toLocaleString() })
+      })
+      .then(() => {
+        showNotification("Broadcast sent!", "#28a745");
+        document.getElementById('broadcastMsg').value = '';
       })
       .catch(() => {
-        showNotification("Failed to update order.", "#dc3545");
+        showNotification("Failed to send broadcast.", "#dc3545");
       });
     }
 
-    function markConfirmed(idx) {
-      updateOrderStatus(
-        idx,
-        "confirmed",
-        "Your order has been CONFIRMED! We will contact you soon.",
-        "Order has been CONFIRMED and user notified.",
-        "#28a745"
-      );
-    }
-    function markRejected(idx) {
-      updateOrderStatus(
-        idx,
-        "rejected",
-        "Sorry, your order has been REJECTED. Please contact support for details.",
-        "Order has been REJECTED and user notified.",
-        "#dc3545"
-      );
-    }
-    function markDeleted(idx) {
-      updateOrderStatus(
-        idx,
-        "deleted",
-        "Your order has been DELETED by admin.",
-        "Order has been DELETED and user notified.",
-        "#888"
-      );
-    }
-
-    // Initial fetch
     fetchOrders();
-    // Refresh every 30 seconds
     setInterval(fetchOrders, 30000);
   </script>
 </body>
