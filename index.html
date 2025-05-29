@@ -5,30 +5,29 @@
   <title>Ongod Gadget Admin Panel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6fa; margin: 0; }
-    header { background: #007bff; color: #fff; padding: 24px 0; text-align: center; font-size: 2rem; letter-spacing: 1px; }
-    .container { max-width: 1100px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 16px #0001; padding: 32px 18px 24px 18px; }
-    h2 { margin-top: 0; }
+    body { font-family: Arial, sans-serif; background: #f4f6fa; margin: 0; }
+    .container { max-width: 900px; margin: 40px auto; background: #fff; padding: 24px; border-radius: 10px; box-shadow: 0 2px 16px #0001; }
+    h2 { text-align: center; }
     table { border-collapse: collapse; width: 100%; margin-top: 18px; background: #fff; }
-    th, td { padding: 12px 8px; border: 1px solid #eaeaea; text-align: left; }
+    th, td { padding: 10px 6px; border: 1px solid #eaeaea; text-align: left; }
     th { background: #f5f5f5; }
     tr:nth-child(even) { background: #fafbfc; }
-    .status { font-weight: bold; }
-    .status.confirmed { color: #28a745; }
-    .status.rejected { color: #dc3545; }
-    .status.deleted { color: #888; }
-    .status.transfer { color: #007bff; }
-    .status.card { color: #28a745; }
-    .status.ussd { color: #ff9800; }
-    .status.cash { color: #dc3545; }
+    .status.confirmed { color: #28a745; font-weight: bold; }
+    .status.rejected { color: #dc3545; font-weight: bold; }
+    .status.deleted { color: #888; font-weight: bold; }
     .actions button { margin-right: 6px; padding: 6px 14px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
     .actions .confirm { background: #28a745; color: #fff; }
     .actions .reject { background: #dc3545; color: #fff; }
     .actions .delete { background: #888; color: #fff; }
+    .actions .message { background: #007bff; color: #fff; }
     .notification { position: fixed; top: 24px; right: 24px; background: #333; color: #fff; padding: 16px 28px; border-radius: 8px; font-size: 1.1rem; display: none; z-index: 9999; }
-    /* Responsive table for mobile */
-    @media (max-width: 900px) {
-      .container { max-width: 99vw; padding: 8px 2vw; }
+    #msgModal { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:#0005; z-index:4001; align-items:center; justify-content:center; }
+    #msgModalBox { background:#fff; padding:24px 18px; border-radius:8px; max-width:400px; margin:80px auto; position:relative; box-shadow:0 2px 16px #0002; }
+    #msgModalBox h3 { margin-top:0; }
+    #msgModalBox textarea { width: 100%; min-height: 60px; margin-bottom: 12px; }
+    #msgModalBox button { margin-right: 8px; }
+    @media (max-width: 700px) {
+      .container { max-width: 99vw; padding: 6px 1vw; }
       table, thead, tbody, th, td, tr { display: block; width: 100%; }
       thead tr { display: none; }
       tr { margin-bottom: 18px; border-radius: 8px; box-shadow: 0 1px 6px #0001; background: #fff; }
@@ -43,60 +42,66 @@
       td:last-child { border-bottom: none; }
       td:before {
         position: absolute;
-        top: 12px; left: 12px; width: 44%;
+        top: 10px; left: 10px; width: 44%;
         white-space: nowrap;
         font-weight: bold;
         color: #007bff;
-        font-size: 14px;
+        font-size: 13px;
         content: attr(data-label);
       }
       .actions { display: flex; flex-wrap: wrap; gap: 8px; }
       .actions button { margin-bottom: 6px; width: 100%; min-width: 90px; }
     }
-    @media (max-width: 600px) {
-      .container { padding: 2px 1vw; }
-      td { font-size: 13px; padding-left: 46%; }
-      td:before { font-size: 12px; }
-      .actions button { font-size: 13px; min-width: 80px; }
-    }
   </style>
 </head>
 <body>
-  <header>
-    Ongod Gadget Admin Panel
-  </header>
   <div class="container">
-    <h2>Orders</h2>
-    <div id="ordersTable">Loading...</div>
+    <h2>Admin Order List</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Items</th>
+          <th>Details</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th>Message</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="ordersTable">
+        <!-- Orders will load here -->
+      </tbody>
+    </table>
   </div>
-  <!-- Broadcast Notification Section -->
-  <div class="container" style="margin-bottom:24px;">
-    <h2>Broadcast Notification</h2>
-    <textarea id="broadcastMsg" placeholder="Enter notification message"></textarea>
-    <button onclick="sendBroadcast()">Send Broadcast</button>
-  </div>
+
+  <!-- Notification -->
   <div class="notification" id="adminNotification"></div>
 
-  <!-- Modal for notification/email choice -->
-  <div class="modal-bg" id="notifyModal" style="display:none;">
-    <div class="modal-box">
-      <h3>Send Notification or Email</h3>
-      <label for="notifMsg">Message to user:</label>
-      <textarea id="notifMsg"></textarea>
+  <!-- Message Modal -->
+  <div id="msgModal">
+    <div id="msgModalBox">
+      <h3>Send Message to User</h3>
+      <div id="msgOrderInfo"></div>
+      <textarea id="msgText" placeholder="Type your message..."></textarea>
       <div>
-        <button onclick="sendToUser('notify')">Send as Notification</button>
-        <button onclick="sendToUser('email')">Send as Email</button>
-        <button onclick="sendToUser('broadcast')">Send to Notification Broadcast</button>
-        <button onclick="closeNotifyModal()">Cancel</button>
+        <button onclick="sendAdminMessage('confirmed')">Confirm</button>
+        <button onclick="sendAdminMessage('rejected')">Reject</button>
+        <button onclick="sendAdminMessage('deleted')">Delete</button>
+        <button onclick="closeMsgModal()">Cancel</button>
       </div>
     </div>
   </div>
 
   <script>
+    // Use the same sheet as user side!
     const SHEETBEST_URL = 'https://api.sheetbest.com/sheets/bc256516-2eec-4676-8df9-0cacbf344615';
-    const BROADCAST_SHEET_URL = 'https://api.sheetbest.com/sheets/ec22d5cd-e7c9-4c05-aa38-d8a529a695a0';
     let ordersData = [];
-    let currentAction = null, currentIdx = null, currentStatus = null;
+    let currentIdx = null;
 
     function showNotification(msg, color="#333") {
       const n = document.getElementById('adminNotification');
@@ -108,159 +113,69 @@
     }
 
     function fetchOrders() {
-      document.getElementById('ordersTable').innerHTML = '<div style="padding:30px;text-align:center;">Loading...</div>';
+      document.getElementById('ordersTable').innerHTML = '<tr><td colspan="11">Loading...</td></tr>';
       fetch(SHEETBEST_URL)
         .then(res => res.json())
         .then(data => {
           ordersData = data;
           if (!data.length) {
-            document.getElementById('ordersTable').innerHTML = '<p>No orders yet.</p>';
+            document.getElementById('ordersTable').innerHTML = '<tr><td colspan="11">No orders yet.</td></tr>';
             return;
           }
-          // Responsive table: use data-label for mobile
-          let html = `<div style="overflow-x:auto;"><table>
-            <thead>
-            <tr>
-              <th>Date</th>
-              <th>Order Type</th>
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Items</th>
-              <th>Address/Details</th>
-              <th>Total (₦)</th>
-              <th>Status</th>
-              <th>Notification</th>
-              <th>Actions</th>
-            </tr>
-            </thead>
-            <tbody>`;
+          let html = '';
           data.slice().reverse().forEach((order, idx) => {
             html += `<tr>
               <td data-label="Date">${order.date ? order.date.replace('T', ' ').slice(0, 16) : ''}</td>
-              <td data-label="Order Type">${order.type || ''}</td>
+              <td data-label="Type">${order.type || ''}</td>
               <td data-label="Name">${order.name || ''}</td>
               <td data-label="Phone">${order.phone || ''}</td>
               <td data-label="Email">${order.email || ''}</td>
               <td data-label="Items">${order.items || ''}</td>
-              <td data-label="Address/Details">${order.details || ''}</td>
-              <td data-label="Total (₦)">${order.total ? Number(order.total).toLocaleString() : ''}</td>
+              <td data-label="Details">${order.details || ''}</td>
+              <td data-label="Total">${order.total ? Number(order.total).toLocaleString() : ''}</td>
               <td data-label="Status" class="status ${order.status || ''}">${order.status || ''}</td>
-              <td data-label="Notification">${order.user_notification || ''}</td>
-              <td data-label="Actions" class="actions">
-                <button class="confirm" onclick="openNotifyModal(${ordersData.length-1-idx},'confirmed')">Confirm</button>
-                <button class="reject" onclick="openNotifyModal(${ordersData.length-1-idx},'rejected')">Reject</button>
-                <button class="delete" onclick="openNotifyModal(${ordersData.length-1-idx},'deleted')">Delete</button>
+              <td data-label="Message">${order.message || ''}${order.admin_message ? `<br><b style="color:#6366f1;">[ADMIN]</b> ${order.admin_message}` : ''}</td>
+              <td data-label="Action" class="actions">
+                <button class="confirm" onclick="openMsgModal(${ordersData.length-1-idx})">Update/Message</button>
               </td>
             </tr>`;
           });
-          html += `</tbody></table></div>`;
           document.getElementById('ordersTable').innerHTML = html;
-        })
-        .catch(() => {
-          document.getElementById('ordersTable').innerHTML = '<p style="color:#d00;">Failed to load orders.</p>';
         });
     }
 
-    // --- Modal for notification/email/broadcast ---
-    function openNotifyModal(idx, status) {
-      currentIdx = idx;
-      currentStatus = status;
-      let label =
-        status === 'confirmed' ? '[CONFIRMED] ' :
-        status === 'rejected' ? '[REJECTED] ' :
-        '[DELETED] ';
-      let defaultMsg =
-        status === 'confirmed' ? "Your order has been CONFIRMED! We will contact you soon." :
-        status === 'rejected' ? "Sorry, your order has been REJECTED. Please contact support for details." :
-        "Your order has been DELETED by admin.";
-      document.getElementById('notifMsg').value = label + defaultMsg;
-      document.getElementById('notifyModal').style.display = 'flex';
+    function openMsgModal(index) {
+      currentIdx = index;
+      const order = ordersData[index];
+      document.getElementById('msgOrderInfo').innerHTML = `<b>Name:</b> ${order.name}<br><b>Email:</b> ${order.email}`;
+      document.getElementById('msgText').value = '';
+      document.getElementById('msgModal').style.display = 'flex';
     }
-    function closeNotifyModal() {
-      document.getElementById('notifyModal').style.display = 'none';
-      currentIdx = null;
-      currentStatus = null;
+    function closeMsgModal() {
+      document.getElementById('msgModal').style.display = 'none';
     }
 
-    function sendToUser(type) {
-      const idx = currentIdx;
-      const status = currentStatus;
-      const order = ordersData[idx];
-      if (!order) return;
-      const msg = document.getElementById('notifMsg').value.trim();
-      if (!msg) {
-        showNotification("Message cannot be empty.", "#dc3545");
-        return;
-      }
-      closeNotifyModal();
-      if (type === 'notify') {
-        // Update sheet only
-        const patchBody = {
-          status: status,
-          user_notification: msg + " (" + new Date().toLocaleString() + ")"
-        };
-        fetch(`${SHEETBEST_URL}/order?date=${encodeURIComponent(order.date)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(patchBody)
-        })
-        .then(() => {
-          showNotification("Notification sent to user.", "#28a745");
-          fetchOrders();
-        })
-        .catch(() => {
-          showNotification("Failed to update order.", "#dc3545");
-        });
-      } else if (type === 'email') {
-        // Open email client only
-        if (order.email) {
-          let subject = encodeURIComponent("Ongod Gadget Order Update");
-          let body = encodeURIComponent(`Dear ${order.name},\n\n${msg}\n\nOrder: ${order.items}\nTotal: ₦${order.total}\n\nThank you for shopping with Ongod Gadget Shop!`);
-          window.location.href = `mailto:${order.email}?subject=${subject}&body=${body}`;
-          showNotification("Email window opened.", "#007bff");
-        } else {
-          showNotification("No email address for this user.", "#dc3545");
-        }
-      } else if (type === 'broadcast') {
-        // Send to broadcast sheet
-        fetch(BROADCAST_SHEET_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: msg, date: new Date().toLocaleString() })
-        })
-        .then(() => {
-          showNotification("Broadcast sent to all users!", "#28a745");
-        })
-        .catch(() => {
-          showNotification("Failed to send broadcast.", "#dc3545");
-        });
-      }
-    }
-
-    // --- Broadcast notification logic (standalone) ---
-    function sendBroadcast() {
-      const msg = document.getElementById('broadcastMsg').value.trim();
-      if (!msg) {
-        showNotification("Message cannot be empty.", "#dc3545");
-        return;
-      }
-      fetch(BROADCAST_SHEET_URL, {
+    // When admin sends a message or changes status, POST to the same sheet
+    function sendAdminMessage(status) {
+      const order = ordersData[currentIdx];
+      const msg = document.getElementById('msgText').value.trim();
+      fetch(SHEETBEST_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, date: new Date().toLocaleString() })
-      })
-      .then(() => {
-        showNotification("Broadcast sent!", "#28a745");
-        document.getElementById('broadcastMsg').value = '';
-      })
-      .catch(() => {
-        showNotification("Failed to send broadcast.", "#dc3545");
+        body: JSON.stringify({
+          date: new Date().toISOString(),
+          email: order.email,
+          admin_message: msg ? msg : `Your order has been ${status}.`,
+          status: status
+        })
+      }).then(() => {
+        showNotification(`Order ${status} and message sent.`, "#007bff");
+        closeMsgModal();
+        fetchOrders();
       });
     }
 
-    fetchOrders();
-    setInterval(fetchOrders, 30000);
+    document.addEventListener('DOMContentLoaded', fetchOrders);
   </script>
 </body>
 </html>
