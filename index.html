@@ -1,72 +1,308 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Admin Panel - Orders/Notifications</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
-    .container { max-width: 700px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 12px #0001; padding: 30px; }
-    h2 { color: #0078d7; }
-    .order { border-bottom: 1px solid #eee; padding: 14px 0; }
-    .order:last-child { border-bottom: none; }
-    .order-title { font-weight: bold; color: #222; }
-    .order-meta { color: #888; font-size: 0.95em; }
-    .order-message { margin: 8px 0 0 0; }
-    .order-actions button { margin-right: 10px; padding: 6px 14px; border-radius: 5px; border: none; cursor: pointer; }
-    .order-actions .confirm { background: #2ecc71; color: #fff; }
-    .order-actions .reject { background: #e74c3c; color: #fff; }
-    .order-status { font-weight: bold; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h2>Admin Panel: Orders & Notifications</h2>
-    <div id="orders-list">Loading...</div>
-  </div>
-  <script>
-    function loadOrders() {
-      fetch('http://localhost:3000/orders')
-        .then(res => res.json())
-        .then(data => {
-          if (!data.length) {
-            document.getElementById('orders-list').innerHTML = '<div style="color:#888;">No orders/notifications yet.</div>';
-            return;
-          }
-          document.getElementById('orders-list').innerHTML = data.reverse().map((order, idx) => `
-            <div class="order">
-              <div class="order-title">${order.title || '(No Title)'}</div>
-              <div class="order-meta">
-                <b>Sender:</b> ${order.sender || 'Unknown'} |
-                <b>Type:</b> ${order.type || ''} |
-                <b>Status:</b> <span class="order-status">${order.status || ''}</span> |
-                <b>Time:</b> ${order.timestamp ? new Date(order.timestamp).toLocaleString() : ''}
+  <head>
+    <meta charset="UTF-8">
+    <title>ADMIN PANEL</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        background: #f5f5f5;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        width: 100vw;
+      }
+      .container {
+        width: 100vw;
+        min-height: 100vh;
+        background: #fff;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 40px 5vw 40px 5vw;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        justify-content: flex-start;
+        gap: 40px;
+      }
+      .orders-section {
+        flex: 2;
+        min-width: 320px;
+        max-width: 700px;
+      }
+      .notifications-section {
+        flex: 1;
+        min-width: 260px;
+        max-width: 350px;
+        background: #f8fafd;
+        border-radius: 8px;
+        padding: 22px 18px;
+        box-sizing: border-box;
+        margin-top: 0;
+        height: fit-content;
+        overflow-y: auto;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      h2 { color: #0078d7; margin-top: 0; }
+      .order-item {
+        border-bottom: 1px solid #eee;
+        padding: 18px 0;
+        width: 100%;
+        margin: 0 auto;
+      }
+      .order-item:last-child { border-bottom: none; }
+      .order-actions button {
+        margin-right: 10px;
+        padding: 8px 18px;
+        border-radius: 5px;
+        border: none;
+        cursor: pointer;
+        font-size: 1em;
+      }
+      .order-actions .confirm { background: #2ecc71; color: #fff; }
+      .order-actions .reject { background: #e74c3c; color: #fff; }
+      .note {
+        color: #e67e22;
+        font-size: 1.05em;
+        margin-bottom: 24px;
+        width: 100%;
+        max-width: 700px;
+      }
+      .spinner {
+        text-align: center;
+        color: #0078d7;
+        margin: 30px 0;
+      }
+      .order-details {
+        background: #f8fafd;
+        border-radius: 8px;
+        padding: 12px 18px;
+        margin: 10px 0;
+        font-size: 1em;
+        color: #333;
+      }
+      .order-details pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin: 0;
+      }
+      #users-list {
+        background: #f8fafd;
+        border-radius: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 24px;
+        padding: 22px 18px;
+      }
+      #users-list span {
+        display: inline-block;
+        margin: 4px 8px 4px 0;
+        padding: 6px 14px;
+        background: #0078d7;
+        color: #fff;
+        border-radius: 5px;
+        font-size: 1em;
+      }
+      .notification-item {
+        background: #eaf3fa;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        color: #222;
+        font-size: 0.98em;
+        box-shadow: 0 1px 4px #0001;
+      }
+      .notification-title {
+        color: #0078d7;
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+      @media (max-width: 1100px) {
+        .container { flex-direction: column; gap: 0; }
+        .orders-section, .notifications-section { max-width: 98vw; width: 100%; }
+        .notifications-section { margin-top: 30px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="logo" style="text-align:center;margin-bottom:20px;">
+      <img src="https://raw.githubusercontent.com/SheetBest/sheetbest/main/assets/logo.png" alt="SheetBest Logo" style="width: 150px; height: auto;">
+    </div>
+    <div class="display-img" style="text-align:center;">
+      <img src="https://raw.githubusercontent.com/SheetBest/sheetbest/main/assets/admin-panel.png" alt="Admin Panel Screenshot" style="width: 100%; height: auto; border-radius: 10px; box-shadow: 0 2px 12px #0001;">
+    </div>
+    <div class="container">
+      <div class="orders-section">
+        <h2>Admin Panel: Orders & Notifications</h2>
+        <div class="note">
+          <b>Note:</b> Clicking Confirm/Reject will remove the order and notify the user (in the sheet only).
+        </div>
+        <div id="orders-list"><div class="spinner">Loading...</div></div>
+      </div>
+      <div class="notifications-section">
+        <div id="users-list"></div>
+        <div>
+          <h3 style="color:#0078d7;margin-top:0;">All Notifications</h3>
+          <div id="notifications-list"><div class="spinner">Loading...</div></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const SHEETBEST_URL = "https://api.sheetbest.com/sheets/da756097-1974-49b4-bee3-34954fa429da";
+      const NOTIFICATION_URL = "https://api.sheetbest.com/sheets/241df24d-b61e-4584-9a0a-cde50541263b";
+      let ordersData = [];
+
+      // Load from localStorage if available
+      function loadOrders() {
+        const local = localStorage.getItem('adminOrders');
+        if (local) {
+          try {
+            ordersData = JSON.parse(local);
+            renderOrders();
+            renderUsers();
+          } catch {}
+        }
+        // Always fetch latest from backend
+        fetch("https://api.sheetbest.com/sheets/da756097-1974-49b4-bee3-34954fa429da")
+          .then(res => res.json())
+          .then(data => {
+            ordersData = Array.isArray(data) ? data.reverse() : [];
+            localStorage.setItem('adminOrders', JSON.stringify(ordersData));
+            renderOrders();
+            renderUsers();
+          })
+          .catch(err => {
+            document.getElementById('orders-list').innerHTML = '<div style="color:#c00;">Error loading orders.</div>';
+            console.error('Error loading orders:', err);
+          });
+      }
+
+      function renderOrders() {
+        const ordersList = document.getElementById('orders-list');
+        ordersList.innerHTML = '';
+        if (ordersData.length > 0) {
+          ordersData.forEach((order, idx) => {
+            const orderDiv = document.createElement('div');
+            orderDiv.className = 'order-item';
+            orderDiv.id = `order-${order.id}`;
+            orderDiv.innerHTML = `
+              <p><strong>Order ID:</strong> ${order.id || ''}</p>
+              <p><strong>User:</strong> ${order.sender || ''}</p>
+              <p><strong>Status:</strong> ${order.status || 'pending'}</p>
+              <div class="order-details">
+                <b>Details:</b>
+                <pre>${order.message ? order.message : 'No details available.'}</pre>
               </div>
-              <div class="order-message">${(order.message || '').replace(/\n/g, '<br>')}</div>
               <div class="order-actions">
-                <button class="confirm" onclick="updateOrderStatus(${data.length - 1 - idx}, 'confirmed')">Confirm</button>
-                <button class="reject" onclick="updateOrderStatus(${data.length - 1 - idx}, 'rejected')">Reject</button>
+                <button class="confirm" onclick="confirmOrder('${order.id}', '${order.sender || ''}', ${idx})">Confirm</button>
+                <button class="reject" onclick="rejectOrder('${order.id}', '${order.sender || ''}', ${idx})">Reject</button>
               </div>
-            </div>
-          `).join('');
-        })
-        .catch(() => {
-          document.getElementById('orders-list').innerHTML = '<div style="color:#c00;">Error loading data.</div>';
+            `;
+            ordersList.appendChild(orderDiv);
+          });
+        } else {
+          ordersList.innerHTML = '<p>No orders found.</p>';
+        }
+      }
+
+      function renderUsers() {
+        const users = [...new Set(ordersData.map(order => order.sender).filter(Boolean))];
+        const usersSection = document.getElementById('users-list');
+        usersSection.innerHTML = `<b>People who have ordered:</b><br>${users.length ? users.map(u => `<span>${u}</span>`).join('') : '<span style="color:#888;">No users yet.</span>'}`;
+      }
+
+      function confirmOrder(orderId, user, idx) {
+        sendStatusUpdate(orderId, user, "confirmed", idx);
+      }
+
+      function rejectOrder(orderId, user, idx) {
+        sendStatusUpdate(orderId, user, "rejected", idx);
+      }
+
+      function sendStatusUpdate(orderId, user, status, idx) {
+        // 1. Add status update to orders sheet
+        fetch("https://api.sheetbest.com/sheets/241df24d-b61e-4584-9a0a-cde50541263b", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: orderId,
+            sender: user,
+            status: status,
+            timestamp: new Date().toISOString()
+          })
         });
-    }
 
-    function updateOrderStatus(index, status) {
-      fetch('http://localhost:3000/order-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ index, status })
-      })
-      .then(res => res.json())
-      .then(() => loadOrders())
-      .catch(() => alert('Failed to update order status.'));
-    }
+        // 2. Send notification to notification sheet (sheet only, not browser)
+        fetch("https://api.sheetbest.com/sheets/da756097-1974-49b4-bee3-34954fa429da", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: `Order ${status === "confirmed" ? "Confirmed" : "Rejected"}`,
+            message: `Your order (${orderId}) has been ${status}.`,
+            user: user,
+            status: status,
+            timestamp: new Date().toISOString()
+          })
+        }).then(() => {
+          // Remove the order from the list visually and update storage
+          ordersData.splice(idx, 1);
+          localStorage.setItem('adminOrders', JSON.stringify(ordersData));
+          renderOrders();
+          renderUsers();
+          loadNotifications();
+        }).catch(() => {
+          // Optionally, you can log or show a silent error
+        });
+      }
 
-    loadOrders();
-    setInterval(loadOrders, 5000); // Auto-refresh every 5 seconds
-  </script>
-</body>
+      // Notifications panel
+      function loadNotifications() {
+        fetch("https://api.sheetbest.com/sheets/241df24d-b61e-4584-9a0a-cde50541263b")
+          .then(res => res.json())
+          .then(data => {
+            const notificationsList = document.getElementById('notifications-list');
+            notificationsList.innerHTML = '';
+            if (Array.isArray(data) && data.length > 0) {
+              // Show all notifications, latest first
+              data.reverse().forEach(note => {
+                const div = document.createElement('div');
+                div.className = 'notification-item';
+                div.innerHTML = `
+                  <div class="notification-title">${note.title || 'Notification'}</div>
+                  <div>${note.message || ''}</div>
+                  <div style="font-size:0.92em;color:#888;margin-top:3px;">${note.user ? 'User: ' + note.user + ' | ' : ''}${note.timestamp ? new Date(note.timestamp).toLocaleString() : ''}</div>
+                `;
+                notificationsList.appendChild(div);
+              });
+            } else {
+              notificationsList.innerHTML = '<div style="color:#888;">No notifications yet.</div>';
+            }
+          })
+          .catch(() => {
+            document.getElementById('notifications-list').innerHTML = '<div style="color:#c00;">Error loading notifications.</div>';
+          });
+      }
+
+      // Expose functions globally for inline onclick
+      window.confirmOrder = confirmOrder;
+      window.rejectOrder = rejectOrder;
+
+      // Load orders and notifications on page load
+      window.onload = function() {
+        loadOrders();
+        loadNotifications();
+        // Optionally, refresh notifications every 3 minutes:
+        setInterval(loadNotifications, 180000);
+      };
+    </script>
+  </body>
 </html>
